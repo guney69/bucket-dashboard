@@ -783,8 +783,15 @@ function applyFilters() {
 }
 
 function setPreset(type, btn) {
-  const toYMD = d => d.toISOString().slice(0,10);
-  const today  = new Date(); today.setHours(0,0,0,0);
+  // toISOString()은 UTC 변환 → KST(UTC+9) 환경에서 날짜가 1일 밀림
+  // getFullYear/Month/Date는 로컬(KST) 기준이라 정확
+  const toYMD = d => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   let s, e;
   if (type === 'yesterday') {
     s = e = toYMD(new Date(+today - 86400000));
