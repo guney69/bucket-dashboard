@@ -628,7 +628,7 @@ function parseCsv(text) {
 }
 
 function gvizLoad(sheet, reqId) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&t=${Date.now()}`;
   fetch(url)
     .then(r => {
       if (!r.ok) { showError(); return null; }
