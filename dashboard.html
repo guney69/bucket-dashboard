@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Martinee Dashboard — Architect Edition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ===== DESIGN TOKENS — "The Digital Architect" ===== */
+    :root {
+      /* Primary palette */
+      --primary:       #004bca;
+      --primary-end:   #006591;
+      --accent:        #39b8fd;
+      /* Surfaces — tonal stacking, no hard borders */
+      --bg:            #f8f9ff;
+      --surface:       #ffffff;
+      --surface-low:   #eff4ff;
+      --surface-mid:   #e6eeff;
+      --surface-dim:   #ccdbf3;
+      /* Typography */
+      --heading:       #0d1c2e;
+      --body:          #5a6e8a;
+      /* Semantic */
+      --success:       #10B981;
+      --warning:       #F59E0B;
+      --danger:        #EF4444;
+      /* Ghost border — 20% opacity only */
+      --ghost:         rgba(13,28,46,0.12);
+    }
+
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--heading);
+      font-variant-numeric: tabular-nums;
+      min-height: 100vh;
+    }
+
+    /* ===== LOADING OVERLAY ===== */
+    #loading-overlay {
+      position: fixed; inset: 0; background: rgba(248,249,255,0.96);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid var(--surface-mid); border-top-color: var(--primary);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== HEADER ===== */
+    #page-header {
+      padding: 24px 28px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .brand {
+      font-family: 'Manrope', sans-serif;
+      font-size: 21px; font-weight: 800; color: var(--heading);
+      letter-spacing: -0.04em;
+    }
+    .brand em { color: var(--primary); font-style: normal; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .period-badge {
+      font-size: 12px; color: var(--body);
+      background: var(--surface); border: 1px solid var(--ghost);
+      padding: 4px 14px; border-radius: 20px;
+    }
+
+    /* ===== FILTER BAR ===== */
+    #filter-bar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(239,244,255,0.85);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--ghost);
+      padding: 10px 28px; display: flex; align-items: flex-end;
+      gap: 14px; flex-wrap: wrap;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label {
+      font-size: 10px; font-weight: 700; color: var(--body);
+      text-transform: uppercase; letter-spacing: 0.6px;
+    }
+    .filter-control {
+      height: 34px; border: 1px solid var(--ghost); border-radius: 0.75rem;
+      padding: 0 10px; font-size: 13px; font-family: inherit;
+      background: var(--surface); color: var(--heading); cursor: pointer; min-width: 130px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .filter-control:focus {
+      outline: none;
+      border-color: rgba(0,75,202,0.3);
+      background: #f4f7ff;
+      box-shadow: 0 0 0 3px rgba(0,75,202,0.08);
+    }
+
+    /* Multi-select */
+    .ms-wrap { position: relative; }
+    .ms-btn {
+      height: 34px; border: 1px solid var(--ghost); border-radius: 0.75rem;
+      padding: 0 10px; font-size: 13px; font-family: inherit;
+      background: var(--surface); color: var(--heading);
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      min-width: 180px; justify-content: space-between;
+      transition: border-color 0.15s;
+    }
+    .ms-btn:hover { border-color: rgba(0,75,202,0.35); }
+    .ms-dropdown {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 100;
+      background: var(--surface); border: 1px solid var(--ghost);
+      border-radius: 1rem; box-shadow: 0 20px 40px rgba(13,28,46,0.10);
+      min-width: 220px; max-height: 280px; display: none; flex-direction: column;
+    }
+    .ms-dropdown.open { display: flex; }
+    .ms-search {
+      border: none; border-bottom: 1px solid var(--ghost);
+      padding: 9px 14px; font-size: 13px; font-family: inherit;
+      outline: none; border-radius: 1rem 1rem 0 0; background: transparent;
+    }
+    .ms-list { overflow-y: auto; flex: 1; }
+    .ms-option {
+      padding: 7px 14px; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ms-option:hover { background: var(--surface-low); }
+    .ms-option input[type=checkbox] { accent-color: var(--primary); width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      height: 34px; padding: 0 16px; border-radius: 0.75rem;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; border: none; transition: opacity 0.15s, box-shadow 0.15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { opacity: 0.88; }
+    /* Primary — gradient fill per DESIGN.md */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-end) 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0,75,202,0.25);
+    }
+    /* Secondary / outline */
+    .btn-outline {
+      background: var(--surface-mid);
+      color: var(--primary);
+      border: none;
+    }
+    .btn-outline:hover { background: var(--surface-dim); opacity: 1; }
+    .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+    /* ===== DATE RANGE PICKER ===== */
+    .date-range-group { display: flex; flex-direction: column; gap: 5px; }
+    .date-presets { display: flex; gap: 4px; flex-wrap: wrap; }
+    .preset-btn {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; border: 1px solid var(--ghost);
+      background: var(--surface); color: var(--body); cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .preset-btn:hover { background: var(--surface-low); border-color: rgba(0,75,202,0.3); color: var(--primary); }
+    .preset-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--primary-end));
+      color: #fff; border-color: transparent;
+    }
+    .date-inputs { display: flex; align-items: center; gap: 6px; }
+    .date-sep { font-size: 13px; color: var(--body); opacity: 0.5; }
+
+    /* ===== MAIN CONTENT ===== */
+    #main { padding: 24px 28px 56px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* Card — white on --surface-low creates lift with NO border */
+    .card {
+      background: var(--surface);
+      border-radius: 1rem;
+      box-shadow: 0 20px 40px rgba(13,28,46,0.06);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 20px 22px 0;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .card-title {
+      font-family: 'Manrope', sans-serif;
+      font-size: 13px; font-weight: 700; color: var(--heading);
+      letter-spacing: -0.01em;
+    }
+    .card-body { padding: 16px 22px 20px; }
+
+    /* ===== KPI CARDS ===== */
+    #kpi-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .kpi-card {
+      flex: 1; min-width: 160px;
+      background: var(--surface); border-radius: 1rem;
+      padding: 22px 22px 18px;
+      box-shadow: 0 20px 40px rgba(13,28,46,0.06);
+      cursor: pointer;
+      transition: box-shadow 0.25s, transform 0.2s;
+    }
+    .kpi-card:hover {
+      box-shadow: 0 24px 48px rgba(0,75,202,0.13);
+      transform: translateY(-2px);
+    }
+    .kpi-label {
+      font-size: 11px; font-weight: 600; color: var(--body);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+    }
+    .kpi-value {
+      font-family: 'Manrope', sans-serif;
+      font-size: 28px; font-weight: 800; color: var(--heading);
+      letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 12px;
+    }
+    .kpi-wow {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+    }
+    .kpi-wow.up   { background: #D1FAE5; color: var(--success); }
+    .kpi-wow.down { background: #FEE2E2; color: var(--danger); }
+    .kpi-wow.na   { background: var(--surface-low); color: var(--body); }
+
+    /* ===== GRID ROWS ===== */
+    .row-2col   { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+    .row-2equal { display: grid; grid-template-columns: 1fr 1fr;  gap: 20px; }
+
+    /* ===== TOGGLE GROUP ===== */
+    .toggle-group { display: flex; gap: 3px; }
+    .tog-btn {
+      font-size: 11px; font-weight: 600; padding: 4px 10px;
+      border-radius: 0.5rem; border: 1px solid var(--ghost);
+      background: transparent; color: var(--body); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tog-btn:hover { background: var(--surface-low); color: var(--primary); border-color: rgba(0,75,202,0.25); }
+    .tog-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--primary-end));
+      color: #fff; border-color: transparent;
+    }
+
+    /* Chart select */
+    .chart-sel {
+      font-size: 12px; border: 1px solid var(--ghost); border-radius: 0.5rem;
+      padding: 4px 8px; background: var(--surface); color: var(--body);
+      cursor: pointer; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .chart-sel:focus { outline: none; border-color: rgba(0,75,202,0.3); }
+
+    /* ===== FUNNEL ===== */
+    .funnel-body { padding: 16px 22px 20px; }
+    .funnel-step { margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+    .funnel-bar-bg {
+      flex: 1; background: var(--surface-low); border-radius: 0.75rem;
+      height: 52px; position: relative; overflow: hidden;
+    }
+    .funnel-bar-fill {
+      height: 100%; border-radius: 0.75rem;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 14px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .funnel-bar-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .funnel-bar-num  { font-size: 14px; font-weight: 700; color: #fff; }
+    .funnel-conv-badge {
+      font-size: 12px; font-weight: 700; color: var(--warning);
+      min-width: 64px; text-align: right;
+    }
+    .funnel-arrow { text-align: center; font-size: 11px; color: var(--body); margin: 2px 0; padding-right: 74px; }
+
+    /* ===== COMPARISON TABLE — No dividers rule ===== */
+    .tbl-wrap { overflow-x: auto; }
+    .cmp-table { width: 100%; border-collapse: collapse; }
+    .cmp-table th {
+      position: sticky; top: 0;
+      text-align: left; font-size: 10px; font-weight: 700;
+      color: var(--body); padding: 12px 18px;
+      background: var(--surface); white-space: nowrap;
+      cursor: pointer; user-select: none;
+      letter-spacing: 0.4px; text-transform: uppercase;
+      border-bottom: 1px solid var(--ghost);
+    }
+    .cmp-table th:hover { color: var(--primary); }
+    .cmp-table td {
+      padding: 11px 18px; font-size: 13px;
+      /* No border — spacing + alternating bg creates rhythm */
+    }
+    .cmp-table tr:nth-child(even) td { background: var(--surface-low); }
+    .cmp-table tr:hover td { background: var(--surface-mid); }
+    .ch-up   { color: var(--success); font-weight: 600; font-size: 12px; }
+    .ch-down { color: var(--danger);  font-weight: 600; font-size: 12px; }
+    .ch-na   { color: var(--body);    font-size: 12px; }
+
+    /* ===== EMPTY / NOTE ===== */
+    .empty-msg { text-align: center; padding: 40px; color: var(--body); font-size: 13px; }
+    .data-note { font-size: 11px; color: var(--body); margin-top: 8px; opacity: 0.65; font-style: italic; }
+
+    /* ===== KPI POPOVER ===== */
+    #kpi-popover {
+      position: fixed; z-index: 300;
+      background: var(--surface); border: 1px solid var(--ghost);
+      border-radius: 1rem; box-shadow: 0 20px 48px rgba(13,28,46,0.14);
+      padding: 14px 16px; display: none; pointer-events: none;
+      min-width: 230px;
+    }
+    #kpi-popover .pop-title {
+      font-size: 10px; font-weight: 700; color: var(--body);
+      margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* ===== TREND CHECKBOXES ===== */
+    .trend-cb-wrap { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
+    .trend-cb-item {
+      display: flex; align-items: center; gap: 4px; cursor: pointer;
+      font-size: 11px; font-weight: 500;
+    }
+    .trend-cb-item input { width: 12px; height: 12px; flex-shrink: 0; cursor: pointer; }
+
+    /* ===== SELECT ALL ===== */
+    .ms-select-all {
+      padding: 6px 14px; font-size: 12px; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--ghost);
+      font-weight: 700; color: var(--primary); background: var(--surface-low);
+    }
+    .ms-select-all:hover { background: var(--surface-mid); }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div style="font-size:14px;color:var(--body);font-weight:500">데이터를 불러오는 중…</div>
+  <div style="font-size:12px;color:var(--body);opacity:0.7">Google 계정으로 로그인된 Chrome에서 실행해 주세요</div>
+</div>
+
+<!-- Header -->
+<div id="page-header">
+  <div class="brand"><em>Martinee</em> Dashboard — Architect Edition</div>
+  <div class="header-right">
+    <span class="period-badge" id="period-label">—</span>
+    <button class="btn btn-outline" onclick="refreshData()">↻ 새로고침</button>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div id="filter-bar">
+  <div class="filter-group date-range-group">
+    <div class="filter-label">기간</div>
+    <div class="date-presets">
+      <button class="preset-btn" onclick="setPreset('yesterday',this)">어제</button>
+      <button class="preset-btn" onclick="setPreset('7d',this)">최근 7일</button>
+      <button class="preset-btn" onclick="setPreset('30d',this)">최근 30일</button>
+      <button class="preset-btn" id="preset-all" onclick="setPreset('all',this)">전체기간</button>
+    </div>
+    <div class="date-inputs">
+      <input type="date" class="filter-control" id="f-start" onchange="onDateChange()" style="min-width:120px">
+      <span class="date-sep">~</span>
+      <input type="date" class="filter-control" id="f-end" onchange="onDateChange()" style="min-width:120px">
+    </div>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label">Variant Depth 1</div>
+    <div class="ms-wrap">
+      <button class="ms-btn" id="ms-btn" onclick="toggleMs(event)">
+        <span id="ms-label">전체</span><span style="font-size:10px;opacity:0.6">▾</span>
+      </button>
+      <div class="ms-dropdown" id="ms-dd">
+        <input class="ms-search" placeholder="검색…" id="ms-search" oninput="filterMsOptions(this.value)">
+        <div class="ms-select-all" id="ms-select-all" onclick="selectAllVD1()">☑ 전체선택</div>
+        <div class="ms-list" id="ms-list"></div>
+      </div>
+    </div>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label">OS</div>
+    <select class="filter-control" id="f-os" onchange="applyFilters()">
+      <option value="">전체 (All)</option>
+      <option>Android</option><option>Both</option>
+      <option>Mo</option><option>Web</option><option>iOS</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label">&nbsp;</div>
+    <button class="btn btn-outline" onclick="resetFilters()">초기화</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Row 1: KPI Cards -->
+  <div id="kpi-row">
+    <div class="kpi-card" data-kpi-key="push_opt_in" data-kpi-label="푸시 수신 동의" data-kpi-fmt="num" onmouseenter="showKpiPopover(this,event)" onmouseleave="hideKpiPopover()"><div class="kpi-label">푸시 수신 동의</div><div class="kpi-value" id="v-push">—</div><span class="kpi-wow na" id="w-push">WoW N/A</span></div>
+    <div class="kpi-card" data-kpi-key="dau" data-kpi-label="DAU" data-kpi-fmt="num" onmouseenter="showKpiPopover(this,event)" onmouseleave="hideKpiPopover()"><div class="kpi-label">DAU</div><div class="kpi-value" id="v-dau">—</div><span class="kpi-wow na" id="w-dau">WoW N/A</span></div>
+    <div class="kpi-card" data-kpi-key="mau" data-kpi-label="MAU" data-kpi-fmt="num" onmouseenter="showKpiPopover(this,event)" onmouseleave="hideKpiPopover()"><div class="kpi-label">MAU</div><div class="kpi-value" id="v-mau">—</div><span class="kpi-wow na" id="w-mau">WoW N/A</span></div>
+    <div class="kpi-card" data-kpi-key="revenue" data-kpi-label="Revenue" data-kpi-fmt="rev" onmouseenter="showKpiPopover(this,event)" onmouseleave="hideKpiPopover()"><div class="kpi-label">Revenue</div><div class="kpi-value" id="v-rev">—</div><span class="kpi-wow na" id="w-rev">WoW N/A</span></div>
+    <div class="kpi-card" data-kpi-key="sentImpression" data-kpi-label="전체 발송·노출" data-kpi-fmt="num" onmouseenter="showKpiPopover(this,event)" onmouseleave="hideKpiPopover()"><div class="kpi-label">전체 발송·노출</div><div class="kpi-value" id="v-si">—</div><span class="kpi-wow na" id="w-si">WoW —</span></div>
+  </div>
+
+  <!-- Row 2: Combo Chart + Top 5 -->
+  <div class="row-2col">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">일별 발송·노출 / CTR / CVR 추이</span>
+      </div>
+      <div class="card-body"><div style="position:relative;height:208px"><canvas id="comboChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">캠페인 Top 5</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="toggle-group">
+            <button class="tog-btn active" id="tog-depth1"   onclick="setGroupBy('Campaign Depth 1',this)">Depth 1</button>
+            <button class="tog-btn" id="tog-campaign" onclick="setGroupBy('Campaign Name',this)">캠페인명</button>
+            <button class="tog-btn" id="tog-variant"  onclick="setGroupBy('Variant Depth 1',this)">Variant</button>
+          </div>
+          <select class="chart-sel" id="top5-sort" onchange="drawTop5()">
+            <option value="cvr">구매 CVR</option>
+            <option value="revenue">Revenue</option>
+            <option value="si">발송·노출량</option>
+            <option value="oc">오픈·클릭수</option>
+            <option value="ctr">CTR</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body"><div style="position:relative;height:208px"><canvas id="top5Chart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- Row 3: Funnel + Event Trend -->
+  <div class="row-2equal">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">구매 전환 퍼널</span>
+        <span style="font-size:11px;color:var(--body)" id="funnel-date"></span>
+      </div>
+      <div class="card-body">
+        <div style="position:relative;height:208px"><canvas id="funnelChart"></canvas></div>
+        <div class="data-note" id="funnel-note" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">커스텀 이벤트 일별 추이</span>
+      </div>
+      <div class="card-body">
+        <div class="trend-cb-wrap" id="trend-checkboxes"></div>
+        <div style="position:relative;height:208px"><canvas id="trendChart"></canvas></div>
+        <div class="data-note" id="trend-note"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 4: Comparison Table + Opt-in Cards -->
+  <div style="display:flex;gap:20px;align-items:flex-start">
+    <div style="flex:0 0 60%;min-width:360px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">기간 비교</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="toggle-group">
+              <button class="tog-btn active" id="cmp-wow" onclick="setCmpMode('wow',this)">WoW</button>
+              <button class="tog-btn" id="cmp-mom" onclick="setCmpMode('mom',this)">MoM</button>
+              <button class="tog-btn" id="cmp-yoy" onclick="setCmpMode('yoy',this)">YoY</button>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="downloadCSV()">↓ CSV</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="tbl-wrap">
+            <table class="cmp-table" id="cmp-table">
+              <thead>
+                <tr>
+                  <th onclick="sortTbl(0)">지표명 ↕</th>
+                  <th onclick="sortTbl(1)">현재 기간</th>
+                  <th onclick="sortTbl(2)" id="cmp-col-head">WoW ↕</th>
+                </tr>
+              </thead>
+              <tbody id="cmp-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px" id="optin-cards"></div>
+  </div>
+
+  <!-- Row 5: Campaign Purchase Charts (split) -->
+  <div class="row-2equal">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">캠페인 구매지표 — Revenue &amp; AOV</span>
+      </div>
+      <div class="card-body"><div style="position:relative;height:220px"><canvas id="campRevChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">캠페인 구매지표 — 발송당 Revenue &amp; 예상 Reward</span>
+      </div>
+      <div class="card-body"><div style="position:relative;height:220px"><canvas id="campEffChart"></canvas></div></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- KPI Trend Popover -->
+<div id="kpi-popover">
+  <div class="pop-title" id="pop-title"></div>
+  <canvas id="pop-chart" width="220" height="90"></canvas>
+</div>
+
+<script>
+// ============================================================
+// metrics.config.js (inline per PRD §3)
+// ============================================================
+const METRIC_DEFS = {
+  derivedMetrics: {
+    sentImpression: r => (num(r.Sent) + num(r.Impressions)),
+    openClick:      r => (num(r['Total Opens']) + num(r['First Button Clicks'])
+                        + num(r['Second Button Clicks']) + num(r['Body Clicks'])),
+    ctr: r => {
+      const si = METRIC_DEFS.derivedMetrics.sentImpression(r);
+      return si > 0 ? METRIC_DEFS.derivedMetrics.openClick(r) / si : 0;
+    },
+    cvr: r => {
+      const si = METRIC_DEFS.derivedMetrics.sentImpression(r);
+      return si > 0 ? num(r['Conversion A']) / si : 0;
+    },
+    revPerImp: r => {
+      const si = METRIC_DEFS.derivedMetrics.sentImpression(r);
+      return si > 0 ? num(r.Revenue) / si : 0;
+    },
+  },
+  kpiSummaryCards: ['push_opt_in','dau','mau','revenue','sentImpression'],
+  funnelSteps:  ['view_product_detail','view_cartpage','complete_order_product'],
+  funnelLabels: ['제품 상세 조회','카트 조회','구매 완료'],
+  trendLines:   ['complete_order_product','first_purchase','like_brand','like_product',
+                 'view_cartpage','view_product_detail','view_promotion_list_page'],
+  trendColors:  ['#0061FF','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6'],
+  trendLabels:  ['구매완료','첫구매','브랜드찜','제품찜','카트조회','제품상세','프로모션조회'],
+};
+
+// ============================================================
+// CONFIG
+// ============================================================
+const SHEET_ID = '1FgZ_DwZ2_p1mxN7i8dNiu7_gEacLRF4l--D2in6icfo';
+
+// ============================================================
+// STATE
+// ============================================================
+let rawUnion = [], rawKpi = [];
+let filtered  = [];
+let loadedCount = 0;
+let top5GroupBy = 'Campaign Depth 1';
+let selectedVD1 = new Set();
+let charts = {};
+let _cmpMode = 'wow';
+let _popChart = null;
+
+// ============================================================
+// HELPERS
+// ============================================================
+function num(v) { return parseFloat(v) || 0; }
+
+function fmtNum(n) {
+  n = num(n);
+  if (isNaN(n)) return '—';
+  if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toLocaleString('ko-KR');
+}
+function fmtRev(n)  { return '₩' + fmtNum(n); }
+function fmtPct(n)  { return (num(n) * 100).toFixed(2) + '%'; }
+function fmtPct3(n) { return (num(n) * 100).toFixed(2) + '%'; }
+function esc(s)     { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function normalizeDate(d) {
+  if (!d) return '';
+  const s = String(d);
+  // gviz JSON date format: "Date(2026,2,25)" — 0-indexed month
+  const gviz = s.match(/^Date\((\d+),(\d+),(\d+)\)/);
+  if (gviz) {
+    const mon = String(parseInt(gviz[2]) + 1).padStart(2,'0');
+    const day = String(gviz[3]).padStart(2,'0');
+    return `${gviz[1]}-${mon}-${day}`;
+  }
+  // Korean format: "2026. 3. 25"
+  const ko = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  if (ko) return `${ko[1]}-${String(ko[2]).padStart(2,'0')}-${String(ko[3]).padStart(2,'0')}`;
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  return s;
+}
+
+// ============================================================
+// DATA LOADING — gviz CSV (fetch)
+// CSV is ~400KB vs 2.3MB for JSON — much faster
+// ============================================================
+function parseCsvRow(line) {
+  const vals = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) { vals.push(cur); cur = ''; }
+    else cur += c;
+  }
+  vals.push(cur);
+  return vals;
+}
+
+function parseCsv(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const hdrs = parseCsvRow(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseCsvRow(line);
+    return Object.fromEntries(hdrs.map((h, i) => [h, vals[i] ?? '']));
+  });
+}
+
+function gvizLoad(sheet, reqId) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+  fetch(url)
+    .then(r => {
+      if (!r.ok) { showError(); return null; }
+      return r.text();
+    })
+    .then(text => {
+      if (!text) return;
+      if (!text.trimStart().startsWith('"')) { showError(); return; }
+      const rows = parseCsv(text);
+      if (String(reqId) === '0') rawUnion = rows;
+      else                        rawKpi   = rows;
+      if (++loadedCount >= 2) {
+        document.getElementById('loading-overlay').style.display = 'none';
+        initDashboard();
+      }
+    })
+    .catch(showError);
+}
+
+// 10초 안에 로드 안 되면 인증 만료 안내
+let _loadTimer = setTimeout(() => {
+  if (loadedCount < 2) showAuthError();
+}, 30000);
+
+function showAuthError() {
+  document.getElementById('loading-overlay').innerHTML = `
+    <div style="text-align:center;padding:32px;max-width:480px">
+      <div style="font-size:36px;margin-bottom:12px">🔐</div>
+      <div style="font-size:17px;font-weight:700;color:var(--heading);margin-bottom:8px">Google 인증이 필요합니다</div>
+      <div style="font-size:13px;color:var(--body);line-height:1.9;margin-bottom:20px">
+        아래 순서대로 진행해 주세요:<br>
+        <strong>1.</strong> 아래 버튼으로 스프레드시트를 열어 로그인 확인<br>
+        <strong>2.</strong> 로그인 완료 후 이 탭으로 돌아와 새로고침
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}" target="_blank"
+           style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;
+                  border-radius:8px;background:var(--primary);color:#fff;
+                  font-size:13px;font-weight:500;text-decoration:none">
+          📊 스프레드시트 열기
+        </a>
+        <button class="btn btn-outline" onclick="refreshData()">↻ 새로고침</button>
+      </div>
+    </div>`;
+}
+
+function showError() {
+  document.getElementById('loading-overlay').innerHTML = `
+    <div style="text-align:center;padding:32px;max-width:460px">
+      <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:17px;font-weight:700;color:var(--heading);margin-bottom:8px">데이터 로드 실패</div>
+      <div style="font-size:13px;color:var(--body);line-height:1.7;margin-bottom:20px">
+        Google 계정으로 로그인된 Chrome 브라우저에서 열어주세요.<br>
+        또는 스프레드시트를 <strong>공개(링크로 공유)</strong>로 설정 후 새로고침하세요.
+      </div>
+      <button class="btn btn-primary" onclick="refreshData()">↻ 다시 시도</button>
+    </div>`;
+}
+
+function refreshData() {
+  loadedCount = 0;
+  clearTimeout(_loadTimer);
+  _loadTimer = setTimeout(() => { if (loadedCount < 2) showAuthError(); }, 30000);
+  document.getElementById('loading-overlay').innerHTML =
+    '<div class="spinner"></div><div style="font-size:14px;color:var(--body);font-weight:500">새로고침 중…</div>';
+  document.getElementById('loading-overlay').style.display = 'flex';
+  gvizLoad('martinee_union', '0');
+  gvizLoad('daily_kpi', '1');
+}
+
+// ============================================================
+// FILTERS (§4.1)
+// ============================================================
+function initFilters() {
+  const dates = rawUnion.map(r => normalizeDate(r.Date)).filter(Boolean).sort();
+  if (!dates.length) return;
+  const minD = dates[0], maxD = dates[dates.length - 1];
+  document.getElementById('f-start').value = minD;
+  document.getElementById('f-end').value   = maxD;
+  document.getElementById('preset-all')?.classList.add('active');
+
+  // Variant Depth 1 options
+  const vd1s = [...new Set(rawUnion.map(r => r['Variant Depth 1']).filter(Boolean))].sort();
+  document.getElementById('ms-list').innerHTML = vd1s.map(v =>
+    `<label class="ms-option">
+       <input type="checkbox" value="${esc(v)}" onchange="onVD1(this)">${esc(v)}
+     </label>`
+  ).join('');
+
+  applyFilters();
+}
+
+function onVD1(cb) {
+  if (cb.checked) selectedVD1.add(cb.value);
+  else             selectedVD1.delete(cb.value);
+  updateMsLabel();
+  applyFilters();
+}
+function selectAllVD1() {
+  const visibleItems = [...document.querySelectorAll('#ms-list .ms-option')]
+    .filter(el => el.style.display !== 'none');
+  const allChecked = visibleItems.length > 0 && visibleItems.every(el => {
+    const cb = el.querySelector('input[type=checkbox]');
+    return cb && cb.checked;
+  });
+  visibleItems.forEach(el => {
+    const cb = el.querySelector('input[type=checkbox]');
+    if (!cb) return;
+    cb.checked = !allChecked;
+    if (!allChecked) selectedVD1.add(cb.value);
+    else             selectedVD1.delete(cb.value);
+  });
+  // Update select-all button text
+  const btn = document.getElementById('ms-select-all');
+  if (btn) btn.textContent = (!allChecked && visibleItems.length > 0) ? '☒ 전체해제' : '☑ 전체선택';
+  updateMsLabel();
+  applyFilters();
+}
+function updateMsLabel() {
+  document.getElementById('ms-label').textContent = selectedVD1.size ? `${selectedVD1.size}개 선택` : '전체';
+}
+function filterMsOptions(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#ms-list .ms-option').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+function toggleMs(e) {
+  e.stopPropagation();
+  document.getElementById('ms-dd').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ms-wrap')) document.getElementById('ms-dd')?.classList.remove('open');
+});
+
+function applyFilters() {
+  const s = document.getElementById('f-start').value;
+  const e = document.getElementById('f-end').value;
+  const os = document.getElementById('f-os').value;
+
+  filtered = rawUnion.filter(r => {
+    const d = normalizeDate(r.Date);
+    if (s && d < s) return false;
+    if (e && d > e) return false;
+    if (os && r.OS !== os) return false;
+    if (selectedVD1.size > 0 && !selectedVD1.has(r['Variant Depth 1'])) return false;
+    return true;
+  });
+
+  if (s && e) document.getElementById('period-label').textContent = `${s} ~ ${e}`;
+  renderAll();
+}
+
+function setPreset(type, btn) {
+  const toYMD = d => d.toISOString().slice(0,10);
+  const today  = new Date(); today.setHours(0,0,0,0);
+  let s, e;
+  if (type === 'yesterday') {
+    s = e = toYMD(new Date(+today - 86400000));
+  } else if (type === '7d') {
+    e = toYMD(new Date(+today - 86400000));
+    s = toYMD(new Date(+today - 7  * 86400000));
+  } else if (type === '30d') {
+    e = toYMD(new Date(+today - 86400000));
+    s = toYMD(new Date(+today - 30 * 86400000));
+  } else { // 'all'
+    const dates = rawUnion.map(r => normalizeDate(r.Date)).filter(Boolean).sort();
+    s = dates[0] || ''; e = dates[dates.length-1] || '';
+  }
+  document.getElementById('f-start').value = s;
+  document.getElementById('f-end').value   = e;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  applyFilters();
+}
+
+function onDateChange() {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  applyFilters();
+}
+
+function resetFilters() {
+  const dates = rawUnion.map(r => normalizeDate(r.Date)).filter(Boolean).sort();
+  document.getElementById('f-start').value = dates[0] || '';
+  document.getElementById('f-end').value   = dates[dates.length-1] || '';
+  document.getElementById('f-os').value    = '';
+  selectedVD1.clear();
+  document.querySelectorAll('#ms-list input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateMsLabel();
+  // Mark 전체기간 as active
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('preset-all')?.classList.add('active');
+  applyFilters();
+}
+
+// ============================================================
+// KPI CARDS (§4.2)
+// ============================================================
+function renderKpiCards() {
+  const s = document.getElementById('f-start').value;
+  const e = document.getElementById('f-end').value;
+
+  // Filter rawKpi by selected date range
+  const kpiRows = rawKpi.filter(r => {
+    const d = normalizeDate(r.date || r.Date);
+    if (!d) return false;
+    if (s && d < s) return false;
+    if (e && d > e) return false;
+    return true;
+  });
+  // Use latest row in range; null if no match → N/A
+  const kpi = kpiRows.length ? kpiRows[kpiRows.length - 1] : null;
+
+  function setKpi(valId, wowId, value, wow) {
+    document.getElementById(valId).textContent = value;
+    const el = document.getElementById(wowId);
+    if (wow === null) {
+      el.className = 'kpi-wow na'; el.textContent = 'WoW N/A';
+    } else {
+      const up = wow >= 0;
+      el.className = 'kpi-wow ' + (up ? 'up' : 'down');
+      el.textContent = (up ? '▲ ' : '▼ ') + Math.abs(wow * 100).toFixed(1) + '% WoW';
+    }
+  }
+
+  // 7일 전 행 찾기 (WoW 계산용)
+  const latestDate = kpi ? normalizeDate(kpi.date || kpi.Date) : null;
+  let prevKpi = null;
+  if (latestDate) {
+    const d = new Date(latestDate + 'T00:00:00');
+    d.setDate(d.getDate() - 7);
+    const prevDate = d.toISOString().slice(0, 10);
+    const prevRow  = rawKpi.find(r => normalizeDate(r.date || r.Date) === prevDate);
+    if (prevRow) prevKpi = prevRow;
+  }
+
+  function wowRatio(currRow, prevRow, key) {
+    if (!currRow || !prevRow) return null;
+    const c = num(currRow[key]);
+    const p = num(prevRow[key]);
+    if (!p) return null;
+    return (c - p) / Math.abs(p);
+  }
+
+  if (!kpi) {
+    setKpi('v-push', 'w-push', 'N/A', null);
+    setKpi('v-dau',  'w-dau',  'N/A', null);
+    setKpi('v-mau',  'w-mau',  'N/A', null);
+    setKpi('v-rev',  'w-rev',  'N/A', null);
+  } else {
+    setKpi('v-push', 'w-push', fmtNum(kpi.push_opt_in), wowRatio(kpi, prevKpi, 'push_opt_in'));
+    setKpi('v-dau',  'w-dau',  fmtNum(kpi.dau),         wowRatio(kpi, prevKpi, 'dau'));
+    setKpi('v-mau',  'w-mau',  fmtNum(kpi.mau),         wowRatio(kpi, prevKpi, 'mau'));
+    setKpi('v-rev',  'w-rev',  fmtRev(kpi.revenue),     wowRatio(kpi, prevKpi, 'revenue'));
+  }
+
+  // Sent+Impression: sum from filtered data + WoW vs prior period
+  const totalSI = filtered.reduce((acc, r) => acc + METRIC_DEFS.derivedMetrics.sentImpression(r), 0);
+
+  let wow = null;
+  if (s && e) {
+    const days = (new Date(e) - new Date(s)) / 86400000 + 1;
+    const prevE = new Date(+new Date(s) - 86400000).toISOString().slice(0,10);
+    const prevS = new Date(+new Date(s) - days * 86400000).toISOString().slice(0,10);
+    const prevSI = rawUnion.filter(r => {
+      const d = normalizeDate(r.Date);
+      return d >= prevS && d <= prevE;
+    }).reduce((s, r) => s + METRIC_DEFS.derivedMetrics.sentImpression(r), 0);
+    if (prevSI > 0) wow = (totalSI - prevSI) / prevSI;
+  }
+  setKpi('v-si', 'w-si', fmtNum(totalSI), wow);
+}
+
+// ============================================================
+// ROW 2-A: COMBO CHART (§4.3.1)
+// ============================================================
+function renderCombo() {
+  const byDate = {};
+  filtered.forEach(r => {
+    const d = normalizeDate(r.Date);
+    if (!d) return;
+    if (!byDate[d]) byDate[d] = { si:0, oc:0, cvA:0 };
+    byDate[d].si  += METRIC_DEFS.derivedMetrics.sentImpression(r);
+    byDate[d].oc  += METRIC_DEFS.derivedMetrics.openClick(r);
+    byDate[d].cvA += num(r['Conversion A']);
+  });
+  const labels = Object.keys(byDate).sort();
+  const siArr  = labels.map(d => byDate[d].si);
+  const ctrArr = labels.map(d => byDate[d].si > 0 ? byDate[d].oc  / byDate[d].si * 100 : 0);
+  const cvrArr = labels.map(d => byDate[d].si > 0 ? byDate[d].cvA / byDate[d].si * 100 : 0);
+
+  const ctx = document.getElementById('comboChart').getContext('2d');
+  charts.combo?.destroy();
+  charts.combo = new Chart(ctx, {
+    data: {
+      labels: labels.map(l => l.slice(5)),
+      datasets: [
+        {
+          type:'bar', label:'발송·노출', data:siArr,
+          backgroundColor:'rgba(0,97,255,0.28)', borderColor:'#0061FF',
+          borderWidth:1, yAxisID:'yL', order:2,
+        },
+        {
+          type:'line', label:'CTR (%)', data:ctrArr,
+          borderColor:'#10B981', backgroundColor:'transparent',
+          pointBackgroundColor:'#10B981', borderWidth:2.5, tension:0.35,
+          yAxisID:'yR', order:1, pointRadius:4,
+        },
+        {
+          type:'line', label:'CVR (%)', data:cvrArr,
+          borderColor:'#F59E0B', backgroundColor:'transparent',
+          pointBackgroundColor:'#F59E0B', borderWidth:2.5, tension:0.35,
+          yAxisID:'yR', order:1, pointRadius:4,
+        },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',labels:{font:{size:11},boxWidth:14,padding:10}},
+        tooltip:{callbacks:{label:ctx => {
+          const v = ctx.parsed.y;
+          return ` ${ctx.dataset.label}: ${ctx.dataset.yAxisID==='yR' ? v.toFixed(2)+'%' : fmtNum(v)}`;
+        }}},
+      },
+      scales:{
+        yL:{ type:'linear', position:'left', grid:{color:'#F1F5F9'},
+             ticks:{callback:v=>fmtNum(v), font:{size:10}} },
+        yR:{ type:'linear', position:'right', grid:{drawOnChartArea:false},
+             ticks:{callback:v=>v.toFixed(2)+'%', font:{size:10}} },
+        x: { grid:{display:false}, ticks:{font:{size:10}} },
+      },
+    },
+  });
+}
+
+// ============================================================
+// ROW 2-B: TOP 5 HORIZONTAL BAR (§4.3.2)
+// ============================================================
+function setGroupBy(field, btn) {
+  top5GroupBy = field;
+  document.querySelectorAll('.tog-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  drawTop5();
+}
+
+function drawTop5() {
+  const sortKey = document.getElementById('top5-sort').value;
+  const sortLabel = document.getElementById('top5-sort').selectedOptions[0].text;
+
+  const agg = {};
+  filtered.forEach(r => {
+    const k = r[top5GroupBy] || '(미분류)';
+    if (!agg[k]) agg[k] = {si:0, oc:0, cvA:0, rev:0};
+    agg[k].si  += METRIC_DEFS.derivedMetrics.sentImpression(r);
+    agg[k].oc  += METRIC_DEFS.derivedMetrics.openClick(r);
+    agg[k].cvA += num(r['Conversion A']);
+    agg[k].rev += num(r.Revenue);
+  });
+
+  const items = Object.entries(agg).map(([k,v]) => ({
+    label: k.length > 32 ? k.slice(0,32)+'…' : k,
+    si: v.si, oc: v.oc, cvA: v.cvA, rev: v.rev,
+    ctr: v.si > 0 ? v.oc  / v.si : 0,
+    cvr: v.si > 0 ? v.cvA / v.si : 0,
+  }));
+
+  const metricKey = {cvr:'cvr', revenue:'rev', si:'si', oc:'oc', ctr:'ctr'}[sortKey] || 'cvr';
+  const fmtMap = { cvr:fmtPct3, rev:fmtRev, si:fmtNum, oc:fmtNum, ctr:v=>fmtPct(v) };
+  const fmt = fmtMap[metricKey] || fmtNum;
+
+  const top5 = items.sort((a,b) => b[metricKey] - a[metricKey]).slice(0,5);
+  const colors = ['#0061FF','rgba(0,97,255,0.8)','rgba(0,97,255,0.65)','rgba(0,97,255,0.5)','rgba(0,97,255,0.4)'];
+
+  const ctx = document.getElementById('top5Chart').getContext('2d');
+  charts.top5?.destroy();
+  charts.top5 = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: top5.map(t=>t.label),
+      datasets:[{
+        label: sortLabel,
+        data: top5.map(t=>t[metricKey]),
+        backgroundColor: colors,
+        borderRadius: 5,
+      }],
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>` ${fmt(ctx.parsed.x)}`}},
+      },
+      scales:{
+        x:{grid:{color:'#F1F5F9'}, ticks:{callback:v=>fmt(v), font:{size:10}}},
+        y:{grid:{display:false},   ticks:{font:{size:10}}},
+      },
+    },
+  });
+}
+
+// ============================================================
+// ROW 3-A: FUNNEL CHART — vertical bar (§4.4.1)
+// ============================================================
+function renderFunnel() {
+  const kpi    = rawKpi[0] || {};
+  const steps  = METRIC_DEFS.funnelSteps;
+  const labels = METRIC_DEFS.funnelLabels;
+  const vals   = steps.map(s => num(kpi[s]));
+
+  const dateKey = normalizeDate(kpi.date || kpi.Date || '');
+  document.getElementById('funnel-date').textContent = dateKey;
+
+  if (!dateKey) {
+    document.getElementById('funnel-note').textContent = 'KPI 데이터가 없습니다';
+    return;
+  }
+
+  // Conversion rates for tooltip
+  const convRates = vals.map((v, i) =>
+    i === 0 ? null : (vals[i-1] > 0 ? (v / vals[i-1] * 100).toFixed(1) + '%' : 'N/A')
+  );
+
+  const ctx = document.getElementById('funnelChart').getContext('2d');
+  charts.funnel?.destroy();
+  charts.funnel = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '이벤트 수',
+        data: vals,
+        backgroundColor: ['rgba(0,97,255,1)','rgba(0,97,255,0.65)','rgba(0,97,255,0.35)'],
+        borderRadius: 6,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              const cr = convRates[ctx.dataIndex];
+              const base = ` 건수: ${fmtNum(v)}`;
+              return cr ? [base, ` 전단계 대비: ${cr}`] : base;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#F1F5F9' },
+          ticks: { callback: v => fmtNum(v), font: { size: 10 } },
+        },
+      },
+    },
+  });
+
+  // Conversion rate annotations below chart title
+  const note = convRates.filter(Boolean).map((r, i) =>
+    `${labels[i]} → ${labels[i+1]}: ${r}`
+  ).join('  |  ');
+  document.getElementById('funnel-note').textContent = note ? `전환율 — ${note}` : '';
+}
+
+// ============================================================
+// ROW 3-B: MULTI-LINE TREND CHART (§4.4.2)
+// ============================================================
+function initTrendCheckboxes() {
+  const metrics = METRIC_DEFS.trendLines;
+  const labels  = METRIC_DEFS.trendLabels;
+  const colors  = METRIC_DEFS.trendColors;
+  const container = document.getElementById('trend-checkboxes');
+  if (!container) return;
+  container.innerHTML = metrics.map((m, i) => `
+    <label class="trend-cb-item">
+      <input type="checkbox" value="${m}" ${m === 'view_product_detail' ? 'checked' : ''}
+             onchange="renderTrend()" style="accent-color:${colors[i]}">
+      <span style="color:${colors[i]};font-weight:600">${labels[i]}</span>
+    </label>
+  `).join('');
+}
+
+function renderTrend() {
+  const allMetrics = METRIC_DEFS.trendLines;
+  const colors  = METRIC_DEFS.trendColors;
+  const lbls    = METRIC_DEFS.trendLabels;
+  const dates   = rawKpi.map(r => r.date || r.Date).filter(Boolean);
+
+  // Determine which metrics are checked (fall back to '제품상세' if checkboxes not yet rendered)
+  const cbEls = document.querySelectorAll('#trend-checkboxes input[type=checkbox]');
+  const checkedVals = cbEls.length
+    ? new Set([...cbEls].filter(cb => cb.checked).map(cb => cb.value))
+    : new Set(['view_product_detail']);
+
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  charts.trend?.destroy();
+  charts.trend = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: dates,
+      datasets: allMetrics.map((m,i) => ({
+        label: lbls[i],
+        data: rawKpi.map(r => num(r[m])),
+        borderColor: colors[i],
+        backgroundColor: colors[i]+'18',
+        pointBackgroundColor: colors[i],
+        borderWidth: 2, tension: 0.35, fill: false, pointRadius: 5,
+        hidden: !checkedVals.has(m),
+      })),
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{font:{size:10},boxWidth:12,padding:8},
+          onClick(e, item, legend) {
+            const meta = charts.trend.getDatasetMeta(item.datasetIndex);
+            meta.hidden = !meta.hidden;
+            charts.trend.update();
+            // Sync checkbox
+            const m = allMetrics[item.datasetIndex];
+            const cb = document.querySelector(`#trend-checkboxes input[value="${m}"]`);
+            if (cb) cb.checked = !meta.hidden;
+          },
+        },
+        tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmtNum(ctx.parsed.y)}`}},
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:10}}},
+        y:{grid:{color:'#F1F5F9'}, ticks:{callback:v=>fmtNum(v), font:{size:10}}},
+      },
+    },
+  });
+
+  document.getElementById('trend-note').textContent =
+    rawKpi.length <= 1
+      ? '* 현재 1일 데이터만 있습니다. 데이터가 누적되면 트렌드가 표시됩니다.'
+      : '';
+}
+
+// ============================================================
+// KPI POPOVER (mini trend on hover)
+// ============================================================
+function showKpiPopover(card, event) {
+  const key   = card.dataset.kpiKey;
+  const label = card.dataset.kpiLabel;
+  const fmt   = card.dataset.kpiFmt === 'rev' ? fmtRev : fmtNum;
+
+  let dates, values;
+  if (key === 'sentImpression') {
+    const byDate = {};
+    rawUnion.forEach(r => {
+      const d = normalizeDate(r.Date);
+      if (!d) return;
+      byDate[d] = (byDate[d] || 0) + METRIC_DEFS.derivedMetrics.sentImpression(r);
+    });
+    const allDates = Object.keys(byDate).sort();
+    dates  = allDates.slice(-30);
+    values = dates.map(d => byDate[d]);
+  } else {
+    const sliced = rawKpi.slice(-30);
+    dates  = sliced.map(r => normalizeDate(r.date || r.Date)).filter(Boolean);
+    values = sliced.map(r => num(r[key]));
+  }
+  if (!dates.length) return;
+
+  const pop = document.getElementById('kpi-popover');
+  document.getElementById('pop-title').textContent = label + ' 일별 추이';
+
+  const rect = card.getBoundingClientRect();
+  const popWidth = 246;
+  let left = rect.left;
+  if (left + popWidth > window.innerWidth - 8) left = window.innerWidth - popWidth - 8;
+  pop.style.left = left + 'px';
+  pop.style.top  = (rect.bottom + 8 + window.scrollY) + 'px';
+  pop.style.position = 'absolute';
+  pop.style.display  = 'block';
+
+  if (_popChart) { _popChart.destroy(); _popChart = null; }
+  _popChart = new Chart(document.getElementById('pop-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: dates.map(d => d.slice(5)),
+      datasets: [{
+        data: values,
+        borderColor: '#0061FF',
+        backgroundColor: 'rgba(0,97,255,0.08)',
+        borderWidth: 2, tension: 0.35, fill: true,
+        pointRadius: 2, pointBackgroundColor: '#0061FF',
+      }],
+    },
+    options: {
+      responsive: false, animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ' ' + fmt(c.parsed.y) } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 }, maxTicksLimit: 6 } },
+        y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => fmtNum(v), font: { size: 9 }, maxTicksLimit: 4 } },
+      },
+    },
+  });
+}
+function hideKpiPopover() {
+  document.getElementById('kpi-popover').style.display = 'none';
+  if (_popChart) { _popChart.destroy(); _popChart = null; }
+}
+
+// ============================================================
+// ROW 4: COMPARISON TABLE (§4.5)
+// ============================================================
+const TBL_ROWS = [
+  { label:'DAU',            key:'dau',                   fmt:fmtNum },
+  { label:'MAU',            key:'mau',                   fmt:fmtNum },
+  { label:'Revenue',        key:'revenue',               fmt:fmtRev },
+  { label:'AOV (계산)',      calc: k => k.purchase_cnt > 0 ? k.revenue / k.purchase_cnt : 0, fmt:fmtRev },
+  { label:'ARPU (계산)',     calc: k => k.dau > 0 ? k.revenue / k.dau : 0, fmt:fmtRev },
+  { label:'구매 건수',       key:'purchase_cnt',          fmt:fmtNum },
+  { label:'활성 대비 구매',  calc: k => k.dau > 0 ? k.purchase_cnt / k.dau : 0, fmt:fmtPct },
+  { label:'신규 구매',       key:'first_purchase',        fmt:fmtNum },
+  { label:'구매 완료 제품',  key:'complete_order_product',fmt:fmtNum },
+];
+
+let _tblSortDir = {};
+
+function setCmpMode(mode, btn) {
+  _cmpMode = mode;
+  document.querySelectorAll('#cmp-wow,#cmp-mom,#cmp-yoy').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const labels = { wow: 'WoW ↕', mom: 'MoM ↕', yoy: 'YoY ↕' };
+  const colHead = document.getElementById('cmp-col-head');
+  if (colHead) colHead.textContent = labels[mode];
+  renderTable();
+}
+
+function _findKpiByDate(targetDate) {
+  return rawKpi.find(r => normalizeDate(r.date || r.Date) === targetDate) || null;
+}
+
+function renderTable() {
+  const kpiParsed = rawKpi.map(r => {
+    const o = {};
+    Object.keys(r).forEach(k => { o[k] = num(r[k]); });
+    o.date = normalizeDate(r.date || r.Date);
+    return o;
+  });
+  const latest = kpiParsed[kpiParsed.length - 1] || {};
+  const latestDate = latest.date || '';
+
+  // Find comparison row
+  let compObj = null;
+  if (latestDate) {
+    const d = new Date(latestDate + 'T00:00:00');
+    if (_cmpMode === 'wow') d.setDate(d.getDate() - 7);
+    else if (_cmpMode === 'mom') d.setDate(d.getDate() - 30);
+    else if (_cmpMode === 'yoy') d.setFullYear(d.getFullYear() - 1);
+    const compDate = d.toISOString().slice(0, 10);
+    const compRaw  = _findKpiByDate(compDate);
+    if (compRaw) {
+      compObj = {};
+      Object.keys(compRaw).forEach(k => { compObj[k] = num(compRaw[k]); });
+      compObj.date = normalizeDate(compRaw.date || compRaw.Date);
+    }
+  }
+
+  function getVal(row, obj) {
+    if (!obj || Object.keys(obj).length === 0) return null;
+    if (row.calc) return row.calc(obj);
+    const v = obj[row.key];
+    return v != null ? num(v) : null;
+  }
+
+  function chgBadge(curr, prev) {
+    if (prev == null || curr == null || prev === 0) return '<span class="ch-na">N/A</span>';
+    const pct = (curr - prev) / Math.abs(prev);
+    const isUp = pct >= 0;
+    return `<span class="${isUp ? 'ch-up' : 'ch-down'}">${isUp ? '▲' : '▼'} ${Math.abs(pct * 100).toFixed(2)}%</span>`;
+  }
+
+  document.getElementById('cmp-tbody').innerHTML = TBL_ROWS.map(row => {
+    const val     = getVal(row, latest);
+    const compVal = getVal(row, compObj);
+    return `<tr>
+      <td style="font-weight:500">${esc(row.label)}</td>
+      <td>${val != null ? row.fmt(val) : '—'}</td>
+      <td>${chgBadge(val, compVal)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTbl(col) {
+  const asc = _tblSortDir[col] = !_tblSortDir[col];
+  const tbody = document.getElementById('cmp-tbody');
+  const rows = [...tbody.querySelectorAll('tr')];
+  rows.sort((a,b) => {
+    const va = a.cells[col].textContent.trim().replace(/[^0-9.\-]/g,'');
+    const vb = b.cells[col].textContent.trim().replace(/[^0-9.\-]/g,'');
+    return asc ? (parseFloat(va)||0)-(parseFloat(vb)||0) : (parseFloat(vb)||0)-(parseFloat(va)||0);
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+function downloadCSV() {
+  const tbl = document.getElementById('cmp-table');
+  const csv = [...tbl.querySelectorAll('tr')]
+    .map(r => [...r.querySelectorAll('th,td')].map(c=>`"${c.textContent.trim()}"`).join(','))
+    .join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download = 'marketing_report_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ============================================================
+// ROW 4 (right): OPT-IN CARDS
+// ============================================================
+const OPTIN_DEFS = [
+  { key: 'mau',          label: 'MAU',             color: '#8B5CF6' },
+  { key: 'push_opt_in',  label: '푸시 수신동의',    color: '#0061FF' },
+  { key: 'sms_opt_in',   label: 'SMS 수신동의',     color: '#10B981' },
+  { key: 'kakao_opt_in', label: '카카오 수신동의',   color: '#F59E0B' },
+];
+
+function renderOptinCards() {
+  const container = document.getElementById('optin-cards');
+  if (!container) return;
+  const latest = rawKpi.length ? rawKpi[rawKpi.length - 1] : null;
+
+  container.innerHTML = OPTIN_DEFS.map(d => {
+    const val = latest ? fmtNum(num(latest[d.key])) : '—';
+    return `<div class="kpi-card"
+      data-kpi-key="${d.key}" data-kpi-label="${d.label}" data-kpi-fmt="num"
+      onmouseenter="showKpiPopover(this,event)" onmouseleave="hideKpiPopover()"
+      style="min-width:0">
+      <div class="kpi-label" style="color:${d.color}">${d.label}</div>
+      <div class="kpi-value" style="font-size:22px">${val}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// ROW 5: CAMPAIGN PURCHASE CHARTS (split)
+// ============================================================
+function _buildCampData() {
+  const byDate = {};
+  filtered.forEach(r => {
+    const d = normalizeDate(r.Date);
+    if (!d) return;
+    if (!byDate[d]) byDate[d] = { rev: 0, convA: 0, si: 0, oc: 0 };
+    byDate[d].rev   += num(r.Revenue);
+    byDate[d].convA += num(r['Conversion A']);
+    byDate[d].si    += METRIC_DEFS.derivedMetrics.sentImpression(r);
+    byDate[d].oc    += METRIC_DEFS.derivedMetrics.openClick(r);
+  });
+  const labels = Object.keys(byDate).sort();
+  return {
+    shortLabels: labels.map(l => l.slice(5)),
+    revArr:  labels.map(d => byDate[d].rev),
+    aovArr:  labels.map(d => byDate[d].convA > 0 ? byDate[d].rev / byDate[d].convA : 0),
+    rpiArr:  labels.map(d => byDate[d].si > 0 ? byDate[d].rev / byDate[d].si : 0),
+    rwdArr:  labels.map(d => {
+      const { si, oc, convA } = byDate[d];
+      return si > 0 ? (oc / si) * (convA / si) * 100 : 0;
+    }),
+  };
+}
+
+function renderCampRevChart() {
+  const { shortLabels, revArr, aovArr } = _buildCampData();
+  const ctx = document.getElementById('campRevChart').getContext('2d');
+  charts.campRev?.destroy();
+  charts.campRev = new Chart(ctx, {
+    data: {
+      labels: shortLabels,
+      datasets: [
+        {
+          type: 'bar', label: 'Revenue', data: revArr,
+          backgroundColor: 'rgba(0,97,255,0.28)', borderColor: '#0061FF',
+          borderWidth: 1, yAxisID: 'yL', order: 2,
+        },
+        {
+          type: 'line', label: 'AOV', data: aovArr,
+          borderColor: '#10B981', backgroundColor: 'transparent',
+          pointBackgroundColor: '#10B981', borderWidth: 2.5, tension: 0.35,
+          yAxisID: 'yR', order: 1, pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 14, padding: 10 } },
+        tooltip: { callbacks: { label: c => c.dataset.label === 'Revenue'
+          ? ` Revenue: ${fmtRev(c.parsed.y)}` : ` AOV: ${fmtRev(c.parsed.y)}` } },
+      },
+      scales: {
+        yL: { type: 'linear', position: 'left',  grid: { color: '#F1F5F9' },
+              ticks: { callback: v => fmtRev(v), font: { size: 10 } } },
+        yR: { type: 'linear', position: 'right', grid: { drawOnChartArea: false },
+              ticks: { callback: v => fmtRev(v), font: { size: 10 } } },
+        x:  { grid: { display: false }, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+function renderCampEffChart() {
+  const { shortLabels, rpiArr, rwdArr } = _buildCampData();
+  const ctx = document.getElementById('campEffChart').getContext('2d');
+  charts.campEff?.destroy();
+  charts.campEff = new Chart(ctx, {
+    data: {
+      labels: shortLabels,
+      datasets: [
+        {
+          type: 'bar', label: '발송당 Revenue', data: rpiArr,
+          backgroundColor: 'rgba(245,158,11,0.28)', borderColor: '#F59E0B',
+          borderWidth: 1, yAxisID: 'yL', order: 2,
+        },
+        {
+          type: 'line', label: '예상 Reward (CTR×CVR %)', data: rwdArr,
+          borderColor: '#EF4444', backgroundColor: 'transparent',
+          pointBackgroundColor: '#EF4444', borderWidth: 2.5, tension: 0.35,
+          yAxisID: 'yR', order: 1, pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 14, padding: 10 } },
+        tooltip: { callbacks: { label: c => c.dataset.label === '발송당 Revenue'
+          ? ` 발송당 Revenue: ${fmtRev(c.parsed.y)}` : ` 예상 Reward: ${c.parsed.y.toFixed(4)}%` } },
+      },
+      scales: {
+        yL: { type: 'linear', position: 'left',  grid: { color: '#F1F5F9' },
+              ticks: { callback: v => fmtRev(v), font: { size: 10 } } },
+        yR: { type: 'linear', position: 'right', grid: { drawOnChartArea: false },
+              ticks: { callback: v => v.toFixed(4) + '%', font: { size: 10 } } },
+        x:  { grid: { display: false }, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+// ============================================================
+// RENDER ALL
+// ============================================================
+function renderAll() {
+  renderKpiCards();
+  renderOptinCards();
+  renderCombo();
+  drawTop5();
+  renderFunnel();
+  renderTrend();
+  renderTable();
+  renderCampRevChart();
+  renderCampEffChart();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function initDashboard() {
+  initTrendCheckboxes();
+  initFilters(); // calls applyFilters → renderAll internally
+}
+
+// Start
+gvizLoad('martinee_union', '0');
+gvizLoad('daily_kpi', '1');
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# 민감 정보
+.env
+*.json
+!package.json
+!package-lock.json
+
+# 다운로드 데이터 / 로그
+data/tmp/
+logs/
+*.log
+
+# OS / 에디터
+.DS_Store
+.claude/
+
+# 의존성
+node_modules/
