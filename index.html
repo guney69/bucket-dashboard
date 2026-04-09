@@ -298,6 +298,10 @@
     /* ===== EMPTY / NOTE ===== */
     .empty-msg { text-align: center; padding: 40px; color: var(--body); font-size: 13px; }
     .data-note { font-size: 11px; color: var(--body); margin-top: 8px; opacity: 0.65; font-style: italic; }
+    #funnel-note { font-style: normal; opacity: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .conv-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--surface-low); border-radius: 20px; padding: 3px 10px 3px 9px; }
+    .conv-chip .conv-label { font-size: 11px; color: var(--body); }
+    .conv-chip .conv-rate { font-size: 12px; font-weight: 700; color: var(--primary); font-family: 'Manrope', sans-serif; letter-spacing: -0.01em; }
 
     /* ===== KPI POPOVER ===== */
     #kpi-popover {
@@ -1099,11 +1103,16 @@ function renderFunnel() {
     },
   });
 
-  // Conversion rate annotations below chart title
-  const note = convRates.filter(Boolean).map((r, i) =>
-    `${labels[i]} → ${labels[i+1]}: ${r}`
-  ).join('  |  ');
-  document.getElementById('funnel-note').textContent = note ? `전환율 — ${note}` : '';
+  // Conversion rate annotations below chart
+  const rateChips = convRates.filter(Boolean).map((r, i) =>
+    `<span class="conv-chip"><span class="conv-label">${labels[i]} → ${labels[i+1]}</span><strong class="conv-rate">${r}</strong></span>`
+  ).join('');
+  const funnelNoteEl = document.getElementById('funnel-note');
+  if (rateChips) {
+    funnelNoteEl.innerHTML = `<span style="font-size:11px;color:var(--body);white-space:nowrap">전환율</span>${rateChips}`;
+  } else {
+    funnelNoteEl.textContent = '';
+  }
 }
 
 // ============================================================
